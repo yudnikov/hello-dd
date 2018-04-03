@@ -2,8 +2,8 @@ package ru.yudnikov
 
 package object clew {
 
-  case class PercentCalculation()
+  case class PercentCalculation(percent: BigDecimal)
 
-  case class MoneyCalculation()
+  case class MoneyCalculation(moneyCalculation: MoneyCalculation)
 
 }

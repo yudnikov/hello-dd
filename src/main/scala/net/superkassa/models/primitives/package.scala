@@ -18,6 +18,13 @@ package object primitives {
 
   case class SourceDocument(code: String, number: Int) extends Primitive
 
+  object SourceDocument {
+    def apply(string: String): SourceDocument = {
+      val split = string.split("-")
+      SourceDocument(split(1), split(0).toInt)
+    }
+  }
+
   case class Partner(code: String) extends Primitive
 
 }

@@ -16,7 +16,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-case class Publisher(backendSession: PostgresSession, frontendSession: PostgresSession, datumContext: DatumContext) extends Actor with DatabaseReader {
+case class Publisher(backendSession: PostgresSession, frontendSession: PostgresSession)(datumContext: DatumContext) extends Actor with DatabaseReader {
 
   implicit val cluster: Cluster = Cluster(context.system)
 
@@ -54,7 +54,7 @@ case class Publisher(backendSession: PostgresSession, frontendSession: PostgresS
         segmentBonusRulesFuture(datumContext).map(updateSet("segmentBonusRules", _)),
         thresholdsFuture(datumContext).map(updateSet("thresholds", _)),
         interlinesFuture.map(updateMap("interlines", _)),
-        clearingRulesFuture.map(updateSet("clearingRules", _))
+        clearingRulesFuture(datumContext).map(updateSet("clearingRules", _))
       )
       val resultFuture = Future.sequence(futures)
       resultFuture.onComplete {

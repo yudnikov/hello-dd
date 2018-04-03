@@ -46,10 +46,10 @@ trait DatabaseReader {
     }
   }
 
-  def clearingRulesFuture: Future[Set[ClearingRule]] = {
+  def clearingRulesFuture(datumContext: DatumContext): Future[Set[ClearingRule]] = {
     val fields = "id, validating_carrier, conditions, commission_type, commission_value, market, shop"
-    val bspRulesFuture = backendSession.executeQuery(s"SELECT $fields FROM bsp_rules")(BspRule(_))
-    val tchRulesFuture = backendSession.executeQuery(s"SELECT $fields FROM bsp_rules")(TchRule(_))
+    val bspRulesFuture = backendSession.executeQuery(s"SELECT $fields FROM bsp_rules")(BspRule(_)(datumContext))
+    val tchRulesFuture = backendSession.executeQuery(s"SELECT $fields FROM tch_rules")(TchRule(_)(datumContext))
     for {
       bspRules <- bspRulesFuture
       tchRules <- tchRulesFuture

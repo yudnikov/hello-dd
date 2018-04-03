@@ -69,11 +69,11 @@ package object conditions {
   }
 
   case class CurrentDateCondition(dateTimeRange: DateTimeRange) extends Condition {
-    override def predicate: DateTime => Boolean = dateTime => dateTimeRange contains dateTime
+    override def predicate: CalculationKey => Boolean = calculationKey => dateTimeRange contains calculationKey.now
   }
 
   case class DepartureDateCondition(dateTimeRange: DateTimeRange) extends Condition {
-    override def predicate: Itinerary => Boolean = itinerary => dateTimeRange contains itinerary.departure.dateTime
+    override def predicate: CalculationKey => Boolean = calculationKey => dateTimeRange contains calculationKey.itinerary.departure.dateTime
   }
 
   case class DepartureCountryCondition(include: Set[Country], exclude: Set[Country], inclusionType: InclusionType = InclusionType.Weak)
@@ -83,30 +83,33 @@ package object conditions {
 
   case class DepartureCityCondition(include: Set[City], exclude: Set[City], inclusionType: InclusionType = InclusionType.Weak)
     extends GenericInclusionExclusion[City] {
-    override def toValues: Itinerary => Set[City] = itinerary => Set(itinerary.departure.city)
+    override def toValues: CalculationKey => Set[City] = calculationKey => Set(calculationKey.itinerary.departure.city)
   }
 
   case class InfantCondition(isInfantAllowed: Boolean) extends Condition {
-    override def predicate: SeatInfo => Boolean = seatInfo => seatInfo.isSeated == isInfantAllowed
+    override def predicate: CalculationKey => Boolean = calculationKey => {
+      require(calculationKey.maybeSeatInfo.isDefined, "seat info should be defined")
+      calculationKey.maybeSeatInfo.get.isSeated == isInfantAllowed
+    }
   }
 
   case class ItineraryDateCondition(dateTimeRange: DateTimeRange) extends Condition {
-    override def predicate: Itinerary => Boolean = itinerary => dateTimeRange contains itinerary.dateTimeRange
+    override def predicate: CalculationKey => Boolean = calculationKey => dateTimeRange contains calculationKey.itinerary.dateTimeRange
   }
 
   case class ValidatingCarrierCondition(include: Set[Carrier], exclude: Set[Carrier], inclusionType: InclusionType = InclusionType.Weak)
     extends GenericInclusionExclusion[Carrier] {
-    override def toValues: Recommendation => Set[Carrier] = recommendation => recommendation.validatingCarriers
+    override def toValues: CalculationKey => Set[Carrier] = calculationKey => calculationKey.recommendation.validatingCarriers
   }
 
   case class MarketingCarrierCondition(include: Set[Carrier], exclude: Set[Carrier], inclusionType: InclusionType = InclusionType.Weak)
     extends GenericInclusionExclusion[Carrier] {
-    override def toValues: Itinerary => Set[Carrier] = itinerary => itinerary.marketingCarriers
+    override def toValues: CalculationKey => Set[Carrier] = calculationKey => calculationKey.itinerary.marketingCarriers
   }
 
   case class OperatingCarrierCondition(include: Set[Carrier], exclude: Set[Carrier], inclusionType: InclusionType = InclusionType.Weak)
     extends GenericInclusionExclusion[Carrier] {
-    override def toValues: Itinerary => Set[Carrier] = itinerary => itinerary.operatingCarriers
+    override def toValues: CalculationKey => Set[Carrier] = calculationKey => calculationKey.itinerary.operatingCarriers
   }
 
 }

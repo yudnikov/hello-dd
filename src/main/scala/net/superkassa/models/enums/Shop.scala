@@ -1,6 +1,6 @@
 package net.superkassa.models.enums
 
-import net.superkassa.exceptions.EnumFromStringException
+import net.superkassa.exceptions.ApplyEnumFromStringException
 
 sealed abstract class Shop(val code: String) extends Enum
 
@@ -11,7 +11,7 @@ object Shop {
 
   def apply(string: String): Shop = string match {
     case Shop(shop) => shop
-    case str => throw EnumFromStringException(str, classOf[Shop])
+    case str => throw ApplyEnumFromStringException(str, classOf[Shop])
   }
 
   def unapply(string: String): Option[Shop] = {

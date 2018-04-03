@@ -8,6 +8,8 @@ import net.superkassa.models.{Carrier, Itinerary, Recommendation, SeatInfo}
 import net.superkassa.models.enums._
 import net.superkassa.models.primitives.SourceDocument
 import net.superkassa.models.ranges.DateTimeRange
+import net.superkassa.serialization
+import net.superkassa.serialization.DateTimeSerializer
 import org.joda.money.{CurrencyUnit, Money}
 import org.joda.time.DateTime
 import org.json4s.JsonAST.{JNull, JObject, JString, JValue}
@@ -18,8 +20,12 @@ import ru.yudnikov.clew.{MoneyCalculation, PercentCalculation}
 package object rules {
 
   trait Rule {
+    def isMatching(calculationKey: CalculationKey): Boolean
+  }
+
+  trait ConditionedRule extends Rule {
     def conditions: Iterable[Condition]
-    def isMatching(calculationKey: CalculationKey): Boolean = conditions.forall(_.isMatching(calculationKey))
+    override def isMatching(calculationKey: CalculationKey): Boolean = conditions.forall(_.isMatching(calculationKey))
   }
 
   // FLIGHT BONUS
@@ -81,16 +87,45 @@ package object rules {
   // CLEARING
 
   trait ClearingCommission {
-    def calculate(farePrice: Money, segmentsNumber: Int = 1): MoneyCalculation
+    def calculate(farePrice: Money, segmentsNumber: Int): MoneyCalculation
+  }
+
+  case class PercentClearingCommission(percent: BigDecimal) extends ClearingCommission {
+    override def calculate(farePrice: Money, segmentsNumber: Int = 1): MoneyCalculation = ???
+  }
+
+  case class FixedClearingCommission(money: Money) extends ClearingCommission {
+    override def calculate(farePrice: Money, segmentsNumber: Int = 1): MoneyCalculation = ???
+  }
+
+  case class FixedMoneyPerSegment(money: Money) extends ClearingCommission {
+    override def calculate(farePrice: Money, segmentsNumber: Int): MoneyCalculation = ???
   }
 
   object ClearingCommission {
-    def apply(rs: ResultSet): ClearingCommission = {
-      ???
+    def apply(rs: ResultSet)(datumContext: DatumContext): ClearingCommission = {
+      import datumContext._
+      val commissionType = rs.getString("commission_type")
+      val amount = rs.getDouble("commission_value")
+      val currencyUnitMask = "[A-Z]{3}".r
+      val currencyUnitPerSegment = "[A-Z]{3}#".r
+      commissionType match {
+        case "%" =>
+          PercentClearingCommission(amount)
+        case code@currencyUnitMask() if currencyUnits.contains(code) =>
+          val money = Money.of(CurrencyUnit.of(code), amount)
+          FixedClearingCommission(money)
+        case code@currencyUnitPerSegment() if currencyUnits.contains(code.take(3)) =>
+          val money = Money.of(CurrencyUnit.of(code.take(3)), amount)
+          FixedMoneyPerSegment(money)
+        case x =>
+          throw new Exception(s"can't extract ClearingCommission from $x")
+      }
     }
   }
 
   trait ClearingRule extends Rule {
+    val id: Int
     val market: Market
     val shop: Shop
     val clearingCompany: ClearingCompany
@@ -100,6 +135,7 @@ package object rules {
   }
 
   case class BspRule(
+    id: Int,
     market: Market,
     shop: Shop,
     carrier: Carrier,
@@ -112,17 +148,20 @@ package object rules {
   }
 
   object BspRule {
-    def apply(rs: ResultSet): BspRule = {
+    def apply(rs: ResultSet)(datumContext: DatumContext): BspRule = {
       val market = Market(rs.getString("market"))
       val shop = Shop(rs.getString("shop"))
       val carrier = Carrier(rs.getString("validating_carrier"))
       val id = rs.getInt("id")
-      val clearingCommission = ClearingCommission(rs)
-      BspRule(market, shop, carrier, clearingCommission)
+      val clearingCommission = ClearingCommission(rs)(datumContext)
+      val json = rs.getString("conditions")
+
+      BspRule(id, market, shop, carrier, clearingCommission, Iterable.empty)
     }
   }
 
   case class TchRule(
+    id: Int,
     market: Market,
     shop: Shop,
     sourceDate: DateTime,
@@ -130,8 +169,7 @@ package object rules {
     carrier: Carrier,
     paymentSchemes: Set[PaymentScheme],
     clearingCommission: ClearingCommission,
-  )(
-
+    conditions: Iterable[Condition]
   ) extends ClearingRule
     with Ordered[TchRule] {
 
@@ -151,10 +189,31 @@ package object rules {
   }
 
   object TchRule {
-    def apply(rs: ResultSet): TchRule = {
-      ???
+    def apply(rs: ResultSet)(datumContext: DatumContext): TchRule = {
+      val market = Market(rs.getString("market"))
+      val shop = Shop(rs.getString("shop"))
+      val carrier = Carrier(rs.getString("validating_carrier"))
+      val id = rs.getInt("id")
+      val clearingCommission = ClearingCommission(rs)(datumContext)
+      val json = rs.getString("conditions")
+      implicit val formats: Formats = serialization.commonFormats + TchRuleSerializer(id, carrier, shop, market, clearingCommission)
+      Serialization.read[TchRule](json)
     }
   }
+
+  case class TchRuleSerializer(id: Int, carrier: Carrier, shop: Shop, market: Market, clearingCommission: ClearingCommission)
+    extends CustomSerializer[TchRule](formats => ({
+      case JObject(jFields) =>
+        val fields = jFields.toMap
+        implicit val formatsWithDateTime: Formats = formats + DateTimeSerializer("yyyy-MM-dd")
+        require(fields.contains("source_date") && fields.contains("source_document"), "source_date & source_document should be defined!")
+        val sourceDate = fields("source_date").extract[DateTime]
+        val sourceDocument = SourceDocument(fields("source_document").extract[String])
+        val paymentSchemes = fields.get("payment_scheme").map(_.extract[Set[String]].map(PaymentScheme(_))).getOrElse(Set())
+        new TchRule(id, market, shop, sourceDate, sourceDocument, carrier, paymentSchemes, clearingCommission, Iterable.empty)
+  }, {
+    case _ => JNull
+  }))
 
   // GDS
 

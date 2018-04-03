@@ -29,7 +29,7 @@ case class Subscriber() extends Actor {
     case get@GetSuccess(key, _) =>
       println(s"got ${get.get(key)}")
     case get@GetFailure(key, _) =>
-      println(s"failure ${get}")
+      println(s"failure $get")
     case NotFound(key, _) =>
       println(s"key not found $key")
   }

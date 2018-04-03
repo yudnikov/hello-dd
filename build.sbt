@@ -24,5 +24,8 @@ libraryDependencies ++= Seq(
   "org.iq80.leveldb" % "leveldb" % "0.7",
   "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8",
   // json4s
-  "org.json4s" %% "json4s-jackson" % "3.5.2"
+  "org.json4s" %% "json4s-jackson" % "3.5.2",
+  // breeze
+  "org.scalanlp" %% "breeze" % "1.0-RC2",
+  "org.scalanlp" %% "breeze-viz" % "1.0-RC2",
 )

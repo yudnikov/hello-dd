@@ -24,7 +24,7 @@ case class PostgresSession(connection: Connection with PGConnection) {
 }
 
 object PostgresSession {
-  def apply(postgresSettings: PostgresSettings): PostgresSession = {
+  def apply(postgresSettings: PostgresSettings): Future[PostgresSession] = Future {
     import postgresSettings._
     DriverManager.registerDriver(new org.postgresql.Driver)
     val connection = DriverManager.getConnection(s"jdbc:postgresql://$host:$port/$database", login, password).asInstanceOf[Connection with PGConnection]

@@ -17,7 +17,7 @@ package object blacklist {
       val reason = resultSet.getString("reason")
       val validatingCarrierCondition = ValidatingCarrierCondition(Set(Carrier(resultSet.getString("validated"))), Set())
       val marketingCarrierCondition = MarketingCarrierCondition(Set(Carrier(resultSet.getString("marketing"))), Set())
-      BlacklistRule(id, reason)(validatingCarrierCondition, marketingCarrierCondition)
+      BlacklistRule(id, reason, Iterable(validatingCarrierCondition, marketingCarrierCondition))
     }
   }
 
